@@ -17,7 +17,7 @@ class PatchEmbed(nn.Module):
         self.num_patches = self.grid_size * self.grid_size
         
         # Uncomment this line and replace ? with correct values
-        #self.proj = nn.Conv2d(?, ?, kernel_size=?, stride=?)
+        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
 
     def forward(self, x):
         """
@@ -76,7 +76,12 @@ class MixerBlock(nn.Module):
         self.mlp_channels = Mlp(dim, channels_dim, act_layer=act_layer, drop=drop)
 
     def forward(self, x):
-        raise NotImplementedError
+        # Token mixing
+        x = x + self.mlp_tokens(self.norm1(x).transpose(1, 2)).transpose(1, 2)
+        # Channel mixing
+        x = x + self.mlp_channels(self.norm2(x))
+        return x
+        
     
 
 class MLPMixer(nn.Module):
@@ -117,7 +122,12 @@ class MLPMixer(nn.Module):
         # step 3 go through layer norm
         # step 4 Global averaging spatially
         # Classification
-        raise NotImplementedError
+        x = self.patchemb(images)
+        x = self.blocks(x)
+        x = self.norm(x)
+        x = x.mean(dim=1)
+        x = self.head(x)
+        return x
     
     def visualize(self, logdir):
         """ Visualize the token mixer layer 
